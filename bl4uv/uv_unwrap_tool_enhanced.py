@@ -70,8 +70,8 @@ class UVUnwrapSettings(PropertyGroup):
     
     scale_to_bounds: BoolProperty(
         name="缩放到边界",
-        description="将UV缩放到0-1边界框内（确保每个物体UV填充自己的0-1空间）",
-        default=True
+        description="将UV缩放到0-1边界框内",
+        default=False
     )
     
     auto_select_all: BoolProperty(
@@ -244,7 +244,7 @@ class UV_OT_quick_unwrap_enhanced(Operator):
                 print(f"[UV工具] 处理物体: {obj.name} - 执行智能UV投影")
             
             # 执行智能UV投影
-            # 注意：将 scale_to_bounds 设置为 True 以确保每个物体的UV填充自己的0-1空间
+            # 使用与原生Blender Smart UV Project完全相同的参数
             bpy.ops.uv.smart_project(
                 angle_limit=angle_limit_rad,
                 margin_method='SCALED',
@@ -252,7 +252,7 @@ class UV_OT_quick_unwrap_enhanced(Operator):
                 island_margin=settings.island_margin,
                 area_weight=settings.area_weight,
                 correct_aspect=settings.correct_aspect,
-                scale_to_bounds=True  # 强制设置为True，确保每个物体UV填充0-1空间
+                scale_to_bounds=settings.scale_to_bounds  # 使用用户设置的值，默认False以匹配原生行为
             )
             
             # 更新网格
@@ -312,7 +312,7 @@ class UV_OT_reset_settings(Operator):
         settings.island_margin = 0.0
         settings.area_weight = 0.0
         settings.correct_aspect = True
-        settings.scale_to_bounds = True
+        settings.scale_to_bounds = False
         settings.auto_select_all = True
         settings.keep_seam = True
         settings.angle_input_mode = 'DEGREES'
