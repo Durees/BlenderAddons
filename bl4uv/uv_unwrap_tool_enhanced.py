@@ -100,8 +100,7 @@ class UVUnwrapSettings(PropertyGroup):
         name="批量模式",
         description="处理多个物体的方式",
         items=[
-            ('SEQUENTIAL', "顺序处理", "逐个处理每个物体"),
-            ('TOGETHER', "一起处理", "将所有物体合并处理"),
+            ('SEQUENTIAL', "顺序处理", "逐个处理每个物体，每个物体有独立的0-1 UV空间"),
         ],
         default='SEQUENTIAL'
     )
@@ -135,24 +134,6 @@ class UV_OT_quick_unwrap_enhanced(Operator):
         """检查是否有选中的网格物体"""
         return any(obj.type == 'MESH' for obj in context.selected_objects)
     
-    def invoke(self, context, event):
-        """调用操作符"""
-        return context.window_manager.invoke_props_dialog(self)
-    
-    def draw(self, context):
-        """绘制对话框"""
-        layout = self.layout
-        scene = context.scene
-        settings = scene.uv_unwrap_settings
-        
-        mesh_count = sum(1 for obj in context.selected_objects if obj.type == 'MESH')
-        
-        box = layout.box()
-        box.label(text=f"将处理 {mesh_count} 个网格物体", icon='MESH_DATA')
-        
-        if settings.show_progress:
-            box.label(text="进度信息将在状态栏显示", icon='INFO')
-    
     def execute(self, context):
         """执行UV展开操作"""
         scene = context.scene
@@ -174,27 +155,19 @@ class UV_OT_quick_unwrap_enhanced(Operator):
         original_active = context.active_object
         
         try:
-            if settings.batch_mode == 'TOGETHER':
-                # 一起处理所有物体
-                success = self._unwrap_together(context, mesh_objects, settings)
-                if success:
-                    success_count = len(mesh_objects)
-                else:
-                    failed_count = len(mesh_objects)
-            else:
-                # 顺序处理每个物体
-                for i, obj in enumerate(mesh_objects):
-                    if settings.show_progress:
-                        self._update_progress(f"处理中: {obj.name} ({i+1}/{len(mesh_objects)})", i/len(mesh_objects))
-                    
-                    try:
-                        if self._unwrap_single(context, obj, settings):
-                            success_count += 1
-                        else:
-                            failed_count += 1
-                    except Exception as e:
+            # 顺序处理每个物体（确保每个物体有独立的0-1 UV空间）
+            for i, obj in enumerate(mesh_objects):
+                if settings.show_progress:
+                    self._update_progress(f"处理中: {obj.name} ({i+1}/{len(mesh_objects)})", i/len(mesh_objects))
+                
+                try:
+                    if self._unwrap_single(context, obj, settings):
+                        success_count += 1
+                    else:
                         failed_count += 1
-                        print(f"处理物体 '{obj.name}' 时出错: {e}")
+                except Exception as e:
+                    failed_count += 1
+                    print(f"处理物体 '{obj.name}' 时出错: {e}")
             
             # 恢复原始活动物体和模式
             if original_active:
@@ -295,50 +268,6 @@ class UV_OT_quick_unwrap_enhanced(Operator):
                 pass
             return False
     
-    def _unwrap_together(self, context, objects, settings):
-        """一起处理所有物体"""
-        try:
-            # 设置活动物体为第一个物体
-            context.view_layer.objects.active = objects[0] if objects else None
-            
-            # 进入编辑模式
-            bpy.ops.object.mode_set(mode='EDIT')
-            
-            # 选择所有物体的所有面
-            bpy.ops.mesh.select_all(action='SELECT')
-            
-            # 计算角度限制（根据输入模式）
-            if settings.angle_input_mode == 'DEGREES':
-                # 角度模式：直接转换角度到弧度
-                angle_limit_rad = radians(settings.angle_limit)
-            else:
-                # 传统模式：模拟原始工具行为
-                angle_limit_rad = settings.angle_limit * 3.141592653589793 / 180.0
-            
-            # 执行智能UV投影
-            bpy.ops.uv.smart_project(
-                angle_limit=angle_limit_rad,
-                margin_method='SCALED',
-                rotate_method='AXIS_ALIGNED_Y',
-                island_margin=settings.island_margin,
-                area_weight=settings.area_weight,
-                correct_aspect=settings.correct_aspect,
-                scale_to_bounds=settings.scale_to_bounds
-            )
-            
-            # 返回物体模式
-            bpy.ops.object.mode_set(mode='OBJECT')
-            
-            return True
-            
-        except Exception as e:
-            print(f"批量处理时出错: {e}")
-            # 确保返回物体模式
-            try:
-                bpy.ops.object.mode_set(mode='OBJECT')
-            except:
-                pass
-            return False
     
     def _update_progress(self, message, progress):
         """更新进度显示"""
@@ -407,6 +336,77 @@ class UV_OT_apply_to_selected(Operator):
         
         self.report({'INFO'}, f"设置已应用到 {len(mesh_objects)} 个物体")
         return {'FINISHED'}
+
+# ============================================================================
+# 操作符 - 清除所有选中物体的UVMap
+# ============================================================================
+
+class UV_OT_clear_uvmaps(Operator):
+    """清除所有选中物体的UVMap"""
+    
+    bl_idname = "uv.clear_uvmaps"
+    bl_label = "清除UVMap"
+    bl_description = "清除所有选中物体的UVMap"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    @classmethod
+    def poll(cls, context):
+        """检查是否有选中的网格物体"""
+        return any(obj.type == 'MESH' for obj in context.selected_objects)
+    
+    def execute(self, context):
+        """清除UVMap"""
+        mesh_objects = [obj for obj in context.selected_objects if obj.type == 'MESH']
+        
+        if not mesh_objects:
+            self.report({'WARNING'}, "没有选中的网格物体")
+            return {'CANCELLED'}
+        
+        cleared_count = 0
+        
+        # 保存当前模式
+        original_mode = context.mode
+        original_active = context.active_object
+        
+        try:
+            for obj in mesh_objects:
+                # 检查物体是否有UVMap
+                if not obj.data.uv_layers:
+                    continue
+                
+                # 设置活动物体
+                context.view_layer.objects.active = obj
+                
+                # 进入编辑模式
+                bpy.ops.object.mode_set(mode='EDIT')
+                
+                # 选择所有面
+                bpy.ops.mesh.select_all(action='SELECT')
+                
+                # 清除UV（通过删除所有UV坐标）
+                # 注意：这里使用bpy.ops.uv.reset()来重置UV坐标
+                bpy.ops.uv.reset()
+                
+                # 返回物体模式
+                bpy.ops.object.mode_set(mode='OBJECT')
+                
+                cleared_count += 1
+            
+            # 恢复原始活动物体和模式
+            if original_active:
+                context.view_layer.objects.active = original_active
+            if original_mode != 'OBJECT':
+                try:
+                    bpy.ops.object.mode_set(mode=original_mode)
+                except:
+                    pass
+            
+            self.report({'INFO'}, f"已清除 {cleared_count} 个物体的UVMap")
+            return {'FINISHED'}
+            
+        except Exception as e:
+            self.report({'ERROR'}, f"清除UVMap时出错: {str(e)}")
+            return {'CANCELLED'}
 
 # ============================================================================
 # 面板 - 3D视图侧边栏（增强版）
@@ -487,6 +487,7 @@ class VIEW3D_PT_uv_unwrap_tool_enhanced(Panel):
         row = box.row(align=True)
         row.operator("uv.reset_unwrap_settings", icon='LOOP_BACK', text="重置设置")
         row.operator("uv.apply_to_selected", icon='CHECKMARK', text="应用设置")
+        row.operator("uv.clear_uvmaps", icon='TRASH', text="清除UV")
         
         # 帮助链接
         row = box.row(align=True)
@@ -505,6 +506,7 @@ classes = (
     UV_OT_quick_unwrap_enhanced,
     UV_OT_reset_settings,
     UV_OT_apply_to_selected,
+    UV_OT_clear_uvmaps,
     VIEW3D_PT_uv_unwrap_tool_enhanced,
 )
 
