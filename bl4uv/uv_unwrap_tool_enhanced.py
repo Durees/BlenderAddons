@@ -230,13 +230,6 @@ class UV_OT_quick_unwrap_enhanced(Operator):
     def _unwrap_single(self, context, obj, settings):
         """处理单个物体"""
         try:
-            # 保存原始选择
-            original_selected_objects = context.selected_objects.copy()
-            
-            # 取消选择所有物体，只选择当前物体
-            bpy.ops.object.select_all(action='DESELECT')
-            obj.select_set(True)
-            
             # 设置活动物体
             context.view_layer.objects.active = obj
             
@@ -244,7 +237,7 @@ class UV_OT_quick_unwrap_enhanced(Operator):
             if settings.verbose_logging:
                 print(f"[UV工具] 处理物体: {obj.name} - 进入编辑模式")
             
-            # 进入编辑模式（只编辑当前物体）
+            # 进入编辑模式
             bpy.ops.object.mode_set(mode='EDIT')
             
             # 获取网格数据
@@ -271,7 +264,6 @@ class UV_OT_quick_unwrap_enhanced(Operator):
                 print(f"[UV工具] 处理物体: {obj.name} - 执行智能UV投影")
             
             # 执行智能UV投影
-            # 使用与原生Blender Smart UV Project完全相同的参数
             bpy.ops.uv.smart_project(
                 angle_limit=angle_limit_rad,
                 margin_method='SCALED',
@@ -279,7 +271,7 @@ class UV_OT_quick_unwrap_enhanced(Operator):
                 island_margin=settings.island_margin,
                 area_weight=settings.area_weight,
                 correct_aspect=settings.correct_aspect,
-                scale_to_bounds=settings.scale_to_bounds  # 使用用户设置的值，默认False以匹配原生行为
+                scale_to_bounds=settings.scale_to_bounds
             )
             
             # 更新网格
@@ -291,11 +283,6 @@ class UV_OT_quick_unwrap_enhanced(Operator):
             
             # 返回物体模式
             bpy.ops.object.mode_set(mode='OBJECT')
-            
-            # 恢复原始选择
-            bpy.ops.object.select_all(action='DESELECT')
-            for original_obj in original_selected_objects:
-                original_obj.select_set(True)
             
             return True
             
