@@ -1,0 +1,11 @@
+{
+  "input_folder": "Input",
+  "output_folder": "Output",
+  "uv_angle_limit": 66.0,
+  "uv_island_margin": 0.0,
+  "uv_area_weight": 0.0,
+  "uv_correct_aspect": true,
+  "uv_scale_to_bounds": false,
+  // "blender_path": "/home/chih/Downloads/Blender/blender-5.0.1-linux-x64/blender",
+  "batch_size": 20
+}
