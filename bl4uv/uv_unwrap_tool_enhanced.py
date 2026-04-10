@@ -111,6 +111,12 @@ class UVUnwrapSettings(PropertyGroup):
         description="处理时显示进度信息",
         default=True
     )
+    
+    verbose_logging: BoolProperty(
+        name="详细日志",
+        description="显示每个物体的详细处理信息",
+        default=True
+    )
 
 # ============================================================================
 # 操作符 - 执行UV展开（增强版）
@@ -227,6 +233,10 @@ class UV_OT_quick_unwrap_enhanced(Operator):
             # 设置活动物体
             context.view_layer.objects.active = obj
             
+            # 详细日志：进入编辑模式
+            if settings.verbose_logging:
+                print(f"[UV工具] 处理物体: {obj.name} - 进入编辑模式")
+            
             # 进入编辑模式
             bpy.ops.object.mode_set(mode='EDIT')
             
@@ -249,6 +259,10 @@ class UV_OT_quick_unwrap_enhanced(Operator):
                 # 所以如果用户输入3782，得到：3782 * π / 180 ≈ 66弧度
                 angle_limit_rad = settings.angle_limit * 3.141592653589793 / 180.0
             
+            # 详细日志：执行UV展开
+            if settings.verbose_logging:
+                print(f"[UV工具] 处理物体: {obj.name} - 执行智能UV投影")
+            
             # 执行智能UV投影
             bpy.ops.uv.smart_project(
                 angle_limit=angle_limit_rad,
@@ -262,6 +276,10 @@ class UV_OT_quick_unwrap_enhanced(Operator):
             
             # 更新网格
             bmesh.update_edit_mesh(mesh)
+            
+            # 详细日志：退出编辑模式
+            if settings.verbose_logging:
+                print(f"[UV工具] 处理物体: {obj.name} - 退出编辑模式")
             
             # 返回物体模式
             bpy.ops.object.mode_set(mode='OBJECT')
@@ -358,6 +376,7 @@ class UV_OT_reset_settings(Operator):
         settings.angle_input_mode = 'DEGREES'
         settings.batch_mode = 'SEQUENTIAL'
         settings.show_progress = True
+        settings.verbose_logging = True
         
         self.report({'INFO'}, "设置已重置为默认值")
         return {'FINISHED'}
@@ -461,6 +480,7 @@ class VIEW3D_PT_uv_unwrap_tool_enhanced(Panel):
         col.prop(settings, "scale_to_bounds")
         col.prop(settings, "auto_select_all")
         col.prop(settings, "keep_seam")
+        col.prop(settings, "verbose_logging")
         
         # 工具按钮
         box = layout.box()
