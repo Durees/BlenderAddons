@@ -252,7 +252,7 @@ class UV_OT_quick_unwrap_enhanced(Operator):
                 island_margin=settings.island_margin,
                 area_weight=settings.area_weight,
                 correct_aspect=settings.correct_aspect,
-                scale_to_bounds=True  # 强制设置为True，确保每个物体UV填充0-1空间
+                scale_to_bounds=settings.scale_to_bounds  # 根据用户设置决定是否缩放到边界
             )
             
             # 更新网格
