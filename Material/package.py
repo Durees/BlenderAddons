@@ -10,7 +10,7 @@ import shutil
 from pathlib import Path
 
 def create_zip_package():
-    """创建ZIP格式的插件包"""
+    """创建ZIP格式的插件包（正确目录结构）"""
     
     # 插件名称和版本
     plugin_name = "material_connection_validator"
@@ -19,12 +19,16 @@ def create_zip_package():
     # 输出文件名
     output_zip = f"{plugin_name}_v{version}.zip"
     
-    # 需要包含的文件
+    # 需要包含的文件（在插件目录内）
     required_files = [
         "__init__.py",
-        "operators.py", 
+        "operators.py",
         "panels.py",
-        "utils.py",
+        "utils.py"
+    ]
+    
+    # 文档文件（可选包含）
+    doc_files = [
         "README.md",
         "INSTALL.md",
         "LICENSE"
@@ -56,45 +60,66 @@ def create_zip_package():
     # 创建ZIP文件
     try:
         with zipfile.ZipFile(output_zip, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            # 添加必需文件
+            # 添加必需文件到插件目录
             for file in required_files:
                 if os.path.exists(file):
-                    print(f"添加: {file}")
-                    zipf.write(file, arcname=file)
+                    arcname = f"{plugin_name}/{file}"
+                    print(f"添加: {file} -> {arcname}")
+                    zipf.write(file, arcname=arcname)
+            
+            # 添加文档文件到插件目录
+            for file in doc_files:
+                if os.path.exists(file):
+                    arcname = f"{plugin_name}/{file}"
+                    print(f"添加: {file} -> {arcname}")
+                    zipf.write(file, arcname=arcname)
             
             # 添加可选文件
             for file in optional_files:
                 if os.path.exists(file):
                     if os.path.isdir(file):
-                        # 添加整个目录
+                        # 添加整个目录到插件目录
                         for root, dirs, files in os.walk(file):
                             for f in files:
                                 filepath = os.path.join(root, f)
-                                arcname = os.path.relpath(filepath, start='.')
-                                print(f"添加: {arcname}")
+                                # 保持目录结构
+                                rel_path = os.path.relpath(filepath, start='.')
+                                arcname = f"{plugin_name}/{rel_path}"
+                                print(f"添加: {rel_path} -> {arcname}")
                                 zipf.write(filepath, arcname=arcname)
                     else:
-                        print(f"添加: {file}")
-                        zipf.write(file, arcname=file)
+                        arcname = f"{plugin_name}/{file}"
+                        print(f"添加: {file} -> {arcname}")
+                        zipf.write(file, arcname=arcname)
             
-            # 添加插件信息文件
+            # 添加插件信息文件到根目录
             plugin_info = f"""Plugin: Material Connection Validator
 Version: {version}
 Author: Your Name
 Blender: 3.0+
 Description: 检测材质节点连接不正确的工具
+Installation: In Blender, go to Edit > Preferences > Add-ons, click Install and select this ZIP file.
 """
-            zipf.writestr("PLUGIN_INFO.txt", plugin_info)
+            zipf.writestr("README.txt", plugin_info)
         
         print("-" * 50)
         print(f"成功创建插件包: {output_zip}")
-        print(f"文件大小: {os.path.getsize(output_zip) / 1024:.1f} KB")
+        
+        # 验证ZIP文件结构
+        print("\nZIP文件结构:")
+        with zipfile.ZipFile(output_zip, 'r') as zipf:
+            for name in zipf.namelist():
+                print(f"  {name}")
+        
+        file_size = os.path.getsize(output_zip) / 1024
+        print(f"\n文件大小: {file_size:.1f} KB")
         
         # 显示安装说明
         print("\n安装说明:")
         print("1. 在Blender中打开: 编辑 > 偏好设置 > 插件")
         print("2. 点击'安装'按钮，选择此ZIP文件")
         print("3. 搜索'Material Connection Validator'并启用")
+        print("4. 在3D视图侧边栏的'Material Tools'中找到插件面板")
         
         return True
         
