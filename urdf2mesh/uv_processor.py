@@ -39,7 +39,7 @@ class Config:
             # "/Applications/Blender.app/Contents/MacOS/Blender",
             # "/Applications/Blender 5.01.app/Contents/MacOS/Blender",
             # "/Applications/Blender 5.0.app/Contents/MacOS/Blender",
-            # "/Applications/Blender 4.5.app/Contents/MacOS/Blender",
+            "/Applications/Blender 4.5.app/Contents/MacOS/Blender",
             # Linux
             # "/usr/bin/blender",
             # "/usr/local/bin/blender",
