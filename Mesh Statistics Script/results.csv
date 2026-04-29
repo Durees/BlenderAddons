@@ -1,0 +1,9 @@
+﻿file_path,file_name,vertex_count,edge_count,face_count,euler_characteristic,genus,is_watertight,error
+/Users/zhi/Documents/Psi/Convex Hull/meshes_arm_left_raw/left_arm_base_link_visuals.stl,left_arm_base_link_visuals.stl,11540,34782,23188,-54,28.0,True,
+/Users/zhi/Documents/Psi/Convex Hull/meshes_arm_left_raw/left_arm_link1_visuals.stl,left_arm_link1_visuals.stl,6683,20054,13364,-7,4.5,False,
+/Users/zhi/Documents/Psi/Convex Hull/meshes_arm_left_raw/left_arm_link2_visuals.stl,left_arm_link2_visuals.stl,23765,71301,47534,-2,2.0,True,
+/Users/zhi/Documents/Psi/Convex Hull/meshes_arm_left_raw/left_arm_link3_visuals.stl,left_arm_link3_visuals.stl,18666,55992,37328,2,0.0,True,
+/Users/zhi/Documents/Psi/Convex Hull/meshes_arm_left_raw/left_arm_link4_visuals.stl,left_arm_link4_visuals.stl,18096,54205,36124,15,-6.5,False,
+/Users/zhi/Documents/Psi/Convex Hull/meshes_arm_left_raw/left_arm_link5_visuals.stl,left_arm_link5_visuals.stl,42608,127379,84768,-3,2.5,False,
+/Users/zhi/Documents/Psi/Convex Hull/meshes_arm_left_raw/left_arm_link6_visuals.stl,left_arm_link6_visuals.stl,6824,20496,13664,-8,5.0,True,
+/Users/zhi/Documents/Psi/Convex Hull/meshes_arm_left_raw/left_arm_link7_visuals.stl,left_arm_link7_visuals.stl,27200,81365,54284,119,-58.5,False,
