@@ -17,18 +17,21 @@ Blender 自动化减面处理脚本 (双模式)
 import os
 import sys
 import traceback
+from typing import Optional, List, Tuple, Dict, Any, Union
+
 
 # ============================================================
 # 用户配置区（也可通过交互式输入覆盖）
 # ============================================================
-INPUT_DIR = ""          # 输入文件夹路径（留空则通过 input() 询问）
-OUTPUT_DIR = ""         # 输出文件夹路径（留空则通过 input() 询问）
-RATIO = 0.0             # 塌陷比率 (0.0 ~ 1.0)，留空则通过 input() 询问
-OUTPUT_FORMAT = ""      # 输出格式（留空则通过 input() 询问，可选值见下方 SUPPORTED_EXTENSIONS）
+INPUT_DIR: str = ""          # 输入文件夹路径（留空则通过 input() 询问）
+OUTPUT_DIR: str = ""         # 输出文件夹路径（留空则通过 input() 询问）
+RATIO: float = 0.0           # 塌陷比率 (0.0 ~ 1.0)，留空则通过 input() 询问
+OUTPUT_FORMAT: str = ""      # 输出格式（留空则通过 input() 询问，可选值见下方 SUPPORTED_EXTENSIONS）
+SUFFIX: str = ""             # 导出后缀（设为空字符串则直接覆盖原文件名）
 
 # 支持的格式列表
 # key: 文件扩展名, value: (格式名称, 格式描述)
-SUPPORTED_EXTENSIONS = {
+SUPPORTED_EXTENSIONS: Dict[str, Tuple[str, str]] = {
     '.obj':  ('OBJ',  'Wavefront OBJ (通用格式)'),
     '.stl':  ('STL',  'STereoLithography (3D打印)'),
     '.fbx':  ('FBX',  'Filmbox (通用交换格式)'),
@@ -38,22 +41,19 @@ SUPPORTED_EXTENSIONS = {
     '.x3d':  ('X3D',  'X3D (Web3D/VR)'),
 }
 
-# 导出后缀（设为空字符串则直接覆盖原文件名，注意不要和输入目录相同）
-SUFFIX = ""
-
 
 # ============================================================
 # 环境检测与模式选择
 # ============================================================
 
-def detect_engine():
+def detect_engine() -> Optional[str]:
     """
     检测可用的减面引擎。
     返回: 'blender' 或 'trimesh' 或 None
     """
     # 先尝试 Blender 的 bpy
     try:
-        import bpy
+        import bpy  # type: ignore
         if hasattr(bpy, 'context') and hasattr(bpy, 'data') and hasattr(bpy, 'ops'):
             return 'blender'
     except ImportError:
@@ -61,7 +61,7 @@ def detect_engine():
 
     # 再尝试 trimesh
     try:
-        import trimesh
+        import trimesh  # type: ignore
         return 'trimesh'
     except ImportError:
         pass
@@ -69,17 +69,17 @@ def detect_engine():
     return None
 
 
-def print_engine_info(engine):
+def print_engine_info(engine: str) -> None:
     """打印引擎信息"""
     if engine == 'blender':
-        import bpy
+        import bpy  # type: ignore
         print(f"[信息] 减面引擎: Blender bpy (v{bpy.app.version_string})")
     elif engine == 'trimesh':
-        import trimesh
+        import trimesh  # type: ignore
         print(f"[信息] 减面引擎: trimesh (v{trimesh.__version__})")
 
 
-def print_no_engine_guide():
+def print_no_engine_guide() -> None:
     """当没有可用引擎时打印指引"""
     print("=" * 60)
     print("  [错误] 未找到可用的减面引擎")
@@ -99,18 +99,18 @@ def print_no_engine_guide():
 # 模式 A: Blender bpy 引擎
 # ============================================================
 
-def get_import_export_funcs():
+def get_import_export_funcs() -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """
     根据 Blender 版本返回对应的导入/导出函数映射。
     Blender 4.x 开始将部分导入算子迁移到 bpy.ops.wm.* 命名空间。
     """
-    import bpy
+    import bpy  # type: ignore
 
     version = bpy.app.version
     major = version[0]
 
     # 默认映射（Blender 3.x 及以下）
-    import_map = {
+    import_map: Dict[str, Any] = {
         'OBJ':  bpy.ops.import_scene.obj,
         'STL':  bpy.ops.import_mesh.stl,
         'FBX':  bpy.ops.import_scene.fbx,
@@ -119,7 +119,7 @@ def get_import_export_funcs():
         'PLY':  bpy.ops.import_mesh.ply,
         'X3D':  bpy.ops.import_scene.x3d,
     }
-    export_map = {
+    export_map: Dict[str, Any] = {
         'OBJ':  bpy.ops.export_scene.obj,
         'STL':  bpy.ops.export_mesh.stl,
         'FBX':  bpy.ops.export_scene.fbx,
@@ -142,10 +142,11 @@ def get_import_export_funcs():
     return import_map, export_map
 
 
-def blender_reset_scene():
+def blender_reset_scene() -> None:
     """重置 Blender 场景：删除所有对象并清理 orphan 数据块。"""
-    import bpy
+    import bpy  # type: ignore
 
+    # 安全处理：检查场景是否为空
     if bpy.context.active_object and bpy.context.active_object.mode != 'OBJECT':
         bpy.ops.object.mode_set(mode='OBJECT')
 
@@ -154,9 +155,9 @@ def blender_reset_scene():
     bpy.data.orphans_purge()
 
 
-def blender_import_model(filepath):
+def blender_import_model(filepath: str) -> List[Any]:
     """使用 Blender 导入模型，返回新增对象列表。"""
-    import bpy
+    import bpy  # type: ignore
 
     ext = os.path.splitext(filepath)[1].lower()
     fmt_info = SUPPORTED_EXTENSIONS.get(ext)
@@ -176,9 +177,9 @@ def blender_import_model(filepath):
     return new_objects
 
 
-def blender_apply_decimate(objects, ratio):
+def blender_apply_decimate(objects: List[Any], ratio: float) -> Optional[Any]:
     """使用 Blender Decimate (Collapse) 修改器减面。"""
-    import bpy
+    import bpy  # type: ignore
 
     if not objects:
         print("  [警告] 没有可处理的对象")
@@ -207,9 +208,9 @@ def blender_apply_decimate(objects, ratio):
     return merged_obj
 
 
-def blender_export_model(obj, output_path, target_ext):
+def blender_export_model(obj: Any, output_path: str, target_ext: str) -> None:
     """使用 Blender 导出模型。"""
-    import bpy
+    import bpy  # type: ignore
 
     ext = target_ext.lower()
     fmt_info = SUPPORTED_EXTENSIONS.get(ext)
@@ -236,28 +237,32 @@ def blender_export_model(obj, output_path, target_ext):
 # 模式 B: trimesh 引擎
 # ============================================================
 
-def trimesh_load_model(filepath):
+def trimesh_load_model(filepath: str) -> Optional[Any]:
     """使用 trimesh 加载模型。"""
-    import trimesh
+    import trimesh  # type: ignore
 
     mesh = trimesh.load(filepath)
     # 如果场景包含多个 mesh，合并为一个
     if isinstance(mesh, trimesh.Scene):
         print(f"  [信息] 场景包含多个 mesh，正在合并...")
-        mesh = trimesh.util.concatenate(
-            [geometry for geometry in mesh.geometry.values()
-             if isinstance(geometry, trimesh.Trimesh)]
-        )
+        meshes = [
+            geometry for geometry in mesh.geometry.values()
+            if isinstance(geometry, trimesh.Trimesh)
+        ]
+        if not meshes:
+            print("  [错误] 场景中未找到任何 Trimesh 对象")
+            return None
+        mesh = trimesh.util.concatenate(meshes)
     return mesh
 
 
-def trimesh_apply_decimate(mesh, ratio):
+def trimesh_apply_decimate(mesh: Any, ratio: float) -> Optional[Any]:
     """
     使用 trimesh 的简化算法进行减面。
     优先使用 fast_simplification（性能更好），
     回退使用 trimesh 内置的 simplify_quadric_decimation。
     """
-    import trimesh
+    import trimesh  # type: ignore
 
     if mesh is None:
         print("  [警告] 没有可处理的 mesh")
@@ -279,8 +284,8 @@ def trimesh_apply_decimate(mesh, ratio):
 
     # 方案 1: 使用 fast_simplification（性能最好）
     try:
-        from fast_simplification import simplify
-        import numpy as np
+        from fast_simplification import simplify  # type: ignore
+        import numpy as np  # type: ignore
 
         vertices = np.array(mesh.vertices, dtype=np.float64)
         faces = np.array(mesh.faces, dtype=np.int32)
@@ -316,23 +321,18 @@ def trimesh_apply_decimate(mesh, ratio):
         return mesh
 
 
-def trimesh_export_model(mesh, output_path, target_ext):
+def trimesh_export_model(mesh: Any, output_path: str, target_ext: str) -> None:
     """使用 trimesh 导出模型。"""
-    import trimesh
+    import trimesh  # type: ignore
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     ext = target_ext.lower()
-    if ext == '.glb':
-        # GLB 需要特殊处理
+    if ext in ('.glb', '.gltf', '.x3d'):
+        # 这些格式需要包装为 Scene 导出
         scene = trimesh.Scene([mesh])
-        scene.export(output_path, file_type='glb')
-    elif ext == '.gltf':
-        scene = trimesh.Scene([mesh])
-        scene.export(output_path, file_type='gltf')
-    elif ext == '.x3d':
-        scene = trimesh.Scene([mesh])
-        scene.export(output_path, file_type='x3d')
+        file_type = ext.lstrip('.')
+        scene.export(output_path, file_type=file_type)
     else:
         mesh.export(output_path)
 
@@ -343,9 +343,9 @@ def trimesh_export_model(mesh, output_path, target_ext):
 # 统一的处理流水线
 # ============================================================
 
-def process_file_blender(filepath, output_dir, ratio, output_ext):
+def process_file_blender(filepath: str, output_dir: str, ratio: float, output_ext: str) -> bool:
     """Blender 模式：处理单个文件。"""
-    import bpy
+    import bpy  # type: ignore
 
     filename = os.path.basename(filepath)
     name_no_ext = os.path.splitext(filename)[0]
@@ -381,9 +381,9 @@ def process_file_blender(filepath, output_dir, ratio, output_ext):
         return False
 
 
-def process_file_trimesh(filepath, output_dir, ratio, output_ext):
+def process_file_trimesh(filepath: str, output_dir: str, ratio: float, output_ext: str) -> bool:
     """trimesh 模式：处理单个文件。"""
-    import trimesh
+    import trimesh  # type: ignore
 
     filename = os.path.basename(filepath)
     name_no_ext = os.path.splitext(filename)[0]
@@ -421,59 +421,44 @@ def process_file_trimesh(filepath, output_dir, ratio, output_ext):
         return False
 
 
-def batch_process(input_dir, output_dir, ratio, output_ext, engine):
+def _collect_files(input_dir: str) -> List[Union[str, Tuple[str, str]]]:
     """
-    批量处理文件夹中的所有支持文件。
-    engine: 'blender' 或 'trimesh'
+    收集输入目录中所有支持的模型文件。
+    返回文件路径列表（当 output_ext 固定时）或 (路径, 扩展名) 元组列表（当保持原格式时）。
     """
-    # 收集所有支持的文件
-    files_to_process = []
+    files: List[Union[str, Tuple[str, str]]] = []
     for filename in os.listdir(input_dir):
         ext = os.path.splitext(filename)[1].lower()
         if ext in SUPPORTED_EXTENSIONS:
             filepath = os.path.join(input_dir, filename)
             if os.path.isfile(filepath):
-                files_to_process.append(filepath)
+                files.append(filepath)
+    files.sort()
+    return files
 
-    files_to_process.sort()
 
-    total = len(files_to_process)
-    if total == 0:
-        print(f"\n[信息] 在目录中未找到支持的模型文件: {input_dir}")
-        print(f"[信息] 支持的格式: {', '.join(SUPPORTED_EXTENSIONS.keys())}")
-        return
-
-    fmt_info = SUPPORTED_EXTENSIONS.get(output_ext, ('未知', ''))
-    output_fmt_name = fmt_info[0]
+def _print_batch_header(input_dir: str, output_dir: str, ratio: float,
+                        output_ext: Optional[str], total: int) -> None:
+    """打印批量处理的头部信息。"""
+    if output_ext:
+        fmt_info = SUPPORTED_EXTENSIONS.get(output_ext, ('未知', ''))
+        output_fmt_name = fmt_info[0]
+        fmt_line = f"# 输出格式: {output_fmt_name} ({output_ext})"
+    else:
+        fmt_line = "# 输出格式: 保持原格式"
 
     print(f"\n{'#'*60}")
     print(f"# 批量减面处理开始")
     print(f"# 输入目录: {input_dir}")
     print(f"# 输出目录: {output_dir}")
     print(f"# 塌陷比率: {ratio:.4f}")
-    print(f"# 输出格式: {output_fmt_name} ({output_ext})")
+    print(fmt_line)
     print(f"# 文件数量: {total}")
     print(f"{'#'*60}\n")
 
-    # 选择处理函数
-    if engine == 'blender':
-        process_func = process_file_blender
-    else:
-        process_func = process_file_trimesh
 
-    success_count = 0
-    fail_count = 0
-
-    for idx, filepath in enumerate(files_to_process, 1):
-        filename = os.path.basename(filepath)
-        print(f"\n>>> 进度: [{idx}/{total}] 剩余: {total - idx}")
-
-        success = process_func(filepath, output_dir, ratio, output_ext)
-        if success:
-            success_count += 1
-        else:
-            fail_count += 1
-
+def _print_batch_footer(success_count: int, fail_count: int, total: int) -> None:
+    """打印批量处理的尾部统计信息。"""
     print(f"\n{'#'*60}")
     print(f"# 批量处理完成")
     print(f"# 成功: {success_count}")
@@ -482,83 +467,209 @@ def batch_process(input_dir, output_dir, ratio, output_ext, engine):
     print(f"{'#'*60}")
 
 
+def _run_batch_loop(files: List[Any], output_dir: str, ratio: float,
+                    engine: str, keep_original_ext: bool = False) -> None:
+    """
+    执行批量处理循环。
+    
+    Args:
+        files: 文件列表。如果 keep_original_ext=True，每个元素为 (path, ext) 元组；否则为路径字符串。
+        output_dir: 输出目录
+        ratio: 塌陷比率
+        engine: 引擎类型 ('blender' 或 'trimesh')
+        keep_original_ext: 是否保持原格式
+    """
+    process_func = process_file_blender if engine == 'blender' else process_file_trimesh
+    total = len(files)
+    success_count = 0
+    fail_count = 0
+
+    for idx, item in enumerate(files, 1):
+        if keep_original_ext:
+            filepath, orig_ext = item
+        else:
+            filepath = item
+            orig_ext = None
+
+        filename = os.path.basename(filepath)
+        # 进度条显示
+        progress_bar = _format_progress_bar(idx, total, width=20)
+        print(f"\n>>> 进度: [{idx}/{total}] {progress_bar}")
+
+        ext_to_use = orig_ext if keep_original_ext else item if isinstance(item, str) else orig_ext
+        success = process_func(filepath, output_dir, ratio, ext_to_use)
+        if success:
+            success_count += 1
+        else:
+            fail_count += 1
+
+    _print_batch_footer(success_count, fail_count, total)
+
+
+def _format_progress_bar(current: int, total: int, width: int = 20) -> str:
+    """生成文本进度条。"""
+    if total == 0:
+        return '[' + ' ' * width + ']'
+    filled = int(width * current / total)
+    bar = '█' * filled + '░' * (width - filled)
+    return f'[{bar}]'
+
+
+def batch_process(input_dir: str, output_dir: str, ratio: float,
+                  output_ext: Optional[str], engine: str) -> None:
+    """
+    批量处理文件夹中的所有支持文件。
+    
+    Args:
+        input_dir: 输入目录
+        output_dir: 输出目录
+        ratio: 塌陷比率
+        output_ext: 输出扩展名（None 表示保持原格式）
+        engine: 'blender' 或 'trimesh'
+    """
+    # 收集所有支持的文件
+    raw_files = _collect_files(input_dir)
+    if not raw_files:
+        print(f"\n[信息] 在目录中未找到支持的模型文件: {input_dir}")
+        print(f"[信息] 支持的格式: {', '.join(SUPPORTED_EXTENSIONS.keys())}")
+        return
+
+    total = len(raw_files)
+
+    if output_ext:
+        # 固定输出格式
+        _print_batch_header(input_dir, output_dir, ratio, output_ext, total)
+        _run_batch_loop(raw_files, output_dir, ratio, engine)
+    else:
+        # 保持原格式：将文件路径与扩展名配对
+        files_with_ext: List[Tuple[str, str]] = []
+        for filepath in raw_files:
+            ext = os.path.splitext(filepath)[1].lower()
+            files_with_ext.append((filepath, ext))
+
+        _print_batch_header(input_dir, output_dir, ratio, None, total)
+        _run_batch_loop(files_with_ext, output_dir, ratio, engine, keep_original_ext=True)
+
+
 # ============================================================
 # 交互式输入
 # ============================================================
 
-def get_user_input():
+def _prompt_input_dir() -> str:
+    """交互式获取输入目录。"""
+    global INPUT_DIR
+    if INPUT_DIR:
+        return INPUT_DIR
+
+    path = input("\n请输入输入文件夹路径 (待处理的模型文件): ").strip()
+    if not path:
+        print("[错误] 输入路径不能为空")
+        sys.exit(1)
+    if not os.path.isdir(path):
+        print(f"[错误] 输入目录不存在: {path}")
+        sys.exit(1)
+    INPUT_DIR = path
+    return path
+
+
+def _prompt_output_dir() -> str:
+    """交互式获取输出目录。"""
+    global OUTPUT_DIR
+    if OUTPUT_DIR:
+        return OUTPUT_DIR
+
+    path = input("请输入输出文件夹路径 (处理后文件的保存位置): ").strip()
+    if not path:
+        print("[错误] 输出路径不能为空")
+        sys.exit(1)
+    OUTPUT_DIR = path
+    return path
+
+
+def _prompt_ratio() -> float:
+    """交互式获取塌陷比率。"""
+    global RATIO
+    if 0.0 < RATIO <= 1.0:
+        return RATIO
+
+    while True:
+        try:
+            ratio_input = input("请输入塌陷比率 (0.0 ~ 1.0, 例如 0.5 表示减掉 50% 的面数): ").strip()
+            value = float(ratio_input)
+            if 0.0 < value <= 1.0:
+                RATIO = value
+                return value
+            else:
+                print("[错误] 比率必须在 0.0 到 1.0 之间")
+        except ValueError:
+            print("[错误] 请输入有效的数字")
+
+
+def _prompt_output_format() -> Optional[str]:
+    """交互式获取输出格式。返回 None 表示保持原格式。"""
+    global OUTPUT_FORMAT
+    if OUTPUT_FORMAT:
+        return OUTPUT_FORMAT
+
+    print("\n请选择输出格式:")
+    format_list = list(SUPPORTED_EXTENSIONS.items())
+    for i, (ext, (name, desc)) in enumerate(format_list, 1):
+        print(f"  [{i}] {name:6s} ({ext}) — {desc}")
+    print(f"  [0] 保持原格式（不转换）")
+
+    while True:
+        try:
+            fmt_choice = input(f"\n请选择输出格式 [0-{len(format_list)}] (默认 0): ").strip()
+            if not fmt_choice or fmt_choice == "0":
+                OUTPUT_FORMAT = ""
+                return None
+            idx = int(fmt_choice)
+            if 1 <= idx <= len(format_list):
+                selected_ext = format_list[idx - 1][0]
+                OUTPUT_FORMAT = selected_ext
+                return selected_ext
+            else:
+                print(f"[错误] 请输入 0 到 {len(format_list)} 之间的数字")
+        except ValueError:
+            print("[错误] 请输入有效的数字")
+
+
+def _prompt_suffix() -> str:
+    """交互式获取导出后缀。"""
+    global SUFFIX
+    suffix_input = input(f"\n请输入导出文件名后缀 (当前: '{SUFFIX}', 直接回车保持不变): ").strip()
+    if suffix_input:
+        SUFFIX = suffix_input
+    return SUFFIX
+
+
+def get_user_input() -> Tuple[str, str, float, Optional[str]]:
     """
     获取用户输入（路径和参数）。
     如果已在脚本顶部配置了值，则跳过对应的询问。
+    
+    Returns:
+        (input_dir, output_dir, ratio, output_format)
+        output_format 为 None 表示保持原格式
     """
-    global INPUT_DIR, OUTPUT_DIR, RATIO, OUTPUT_FORMAT
-
     print("=" * 60)
     print("  自动化减面处理工具")
     print("=" * 60)
 
-    # 输入目录
-    if not INPUT_DIR:
-        INPUT_DIR = input("\n请输入输入文件夹路径 (待处理的模型文件): ").strip()
-        if not INPUT_DIR:
-            print("[错误] 输入路径不能为空")
-            sys.exit(1)
+    input_dir = _prompt_input_dir()
+    output_dir = _prompt_output_dir()
+    ratio = _prompt_ratio()
+    output_format = _prompt_output_format()
+    _prompt_suffix()
 
-    if not os.path.isdir(INPUT_DIR):
-        print(f"[错误] 输入目录不存在: {INPUT_DIR}")
-        sys.exit(1)
-
-    # 输出目录
-    if not OUTPUT_DIR:
-        OUTPUT_DIR = input("请输入输出文件夹路径 (处理后文件的保存位置): ").strip()
-        if not OUTPUT_DIR:
-            print("[错误] 输出路径不能为空")
-            sys.exit(1)
-
-    # 塌陷比率
-    if RATIO <= 0.0 or RATIO > 1.0:
-        while True:
-            try:
-                ratio_input = input("请输入塌陷比率 (0.0 ~ 1.0, 例如 0.5 表示减掉 50% 的面数): ").strip()
-                RATIO = float(ratio_input)
-                if 0.0 < RATIO <= 1.0:
-                    break
-                else:
-                    print("[错误] 比率必须在 0.0 到 1.0 之间")
-            except ValueError:
-                print("[错误] 请输入有效的数字")
-
-    # 输出格式选择
-    if not OUTPUT_FORMAT:
-        print("\n请选择输出格式:")
-        format_list = list(SUPPORTED_EXTENSIONS.items())
-        for i, (ext, (name, desc)) in enumerate(format_list, 1):
-            print(f"  [{i}] {name:6s} ({ext}) — {desc}")
-        print(f"  [0] 保持原格式（不转换）")
-
-        while True:
-            try:
-                fmt_choice = input(f"\n请选择输出格式 [0-{len(format_list)}] (默认 0): ").strip()
-                if not fmt_choice or fmt_choice == "0":
-                    OUTPUT_FORMAT = ""
-                    break
-                idx = int(fmt_choice)
-                if 1 <= idx <= len(format_list):
-                    OUTPUT_FORMAT = format_list[idx - 1][0]
-                    break
-                else:
-                    print(f"[错误] 请输入 0 到 {len(format_list)} 之间的数字")
-            except ValueError:
-                print("[错误] 请输入有效的数字")
-
-    return INPUT_DIR, OUTPUT_DIR, RATIO, OUTPUT_FORMAT
+    return input_dir, output_dir, ratio, output_format
 
 
 # ============================================================
 # 主入口
 # ============================================================
 
-def main():
+def main() -> None:
     """主函数：检测引擎、获取参数、执行批量处理。"""
     # 1. 检测可用的减面引擎
     engine = detect_engine()
@@ -572,59 +683,7 @@ def main():
     input_dir, output_dir, ratio, output_format = get_user_input()
 
     # 3. 执行批量处理
-    if output_format:
-        batch_process(input_dir, output_dir, ratio, output_format, engine)
-    else:
-        # 保持原格式
-        files_to_process = []
-        for filename in os.listdir(input_dir):
-            ext = os.path.splitext(filename)[1].lower()
-            if ext in SUPPORTED_EXTENSIONS:
-                filepath = os.path.join(input_dir, filename)
-                if os.path.isfile(filepath):
-                    files_to_process.append((filepath, ext))
-
-        files_to_process.sort(key=lambda x: x[0])
-
-        total = len(files_to_process)
-        if total == 0:
-            print(f"\n[信息] 在目录中未找到支持的模型文件: {input_dir}")
-            print(f"[信息] 支持的格式: {', '.join(SUPPORTED_EXTENSIONS.keys())}")
-            return
-
-        print(f"\n{'#'*60}")
-        print(f"# 批量减面处理开始")
-        print(f"# 输入目录: {input_dir}")
-        print(f"# 输出目录: {output_dir}")
-        print(f"# 塌陷比率: {ratio:.4f}")
-        print(f"# 输出格式: 保持原格式")
-        print(f"# 文件数量: {total}")
-        print(f"{'#'*60}\n")
-
-        if engine == 'blender':
-            process_func = process_file_blender
-        else:
-            process_func = process_file_trimesh
-
-        success_count = 0
-        fail_count = 0
-
-        for idx, (filepath, orig_ext) in enumerate(files_to_process, 1):
-            filename = os.path.basename(filepath)
-            print(f"\n>>> 进度: [{idx}/{total}] 剩余: {total - idx}")
-
-            success = process_func(filepath, output_dir, ratio, orig_ext)
-            if success:
-                success_count += 1
-            else:
-                fail_count += 1
-
-        print(f"\n{'#'*60}")
-        print(f"# 批量处理完成")
-        print(f"# 成功: {success_count}")
-        print(f"# 失败: {fail_count}")
-        print(f"# 总计: {total}")
-        print(f"{'#'*60}")
+    batch_process(input_dir, output_dir, ratio, output_format, engine)
 
 
 if __name__ == "__main__":
